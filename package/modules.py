@@ -141,7 +141,7 @@ class Optimizer:
         self.loss_fn = DQNLoss(
             network, loss_function="smooth_l1", action_space=action_space, double_dqn=True, delay_value=True
         )
-        self.optimizer = torch.optim.Adam(self.loss_fn.parameters(), lr=params.lr)
+        self.optimizer = torch.optim.Adam(self.loss_fn.parameters(), lr=params.lr, weight_decay=params.weight_decay)
         self.trg_updater = SoftUpdate(self.loss_fn, eps=params.soft_update_eps)
         self.scheduler = CosineAnnealingLR(self.optimizer, T_max=params.n_epochs, eta_min=params.min_lr)
         self.clipping = params.max_grad_norm
@@ -166,6 +166,7 @@ class Optimizer:
         self.optimizer.step()
         self.trg_updater.step()
         self.scheduler.step()
+        if hasattr(self.loss_fn.value_network, "explorer"): self.loss_fn.value_network.get_submodule("explorer").step()
         # -------------------------
         last_lr: float = float(self.scheduler.get_last_lr()[0])
         return dict(grad_norm=grad_norm, weights_norm=weights_norm, lr=last_lr)

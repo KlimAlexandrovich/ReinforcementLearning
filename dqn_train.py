@@ -4,7 +4,6 @@ import warnings
 from functools import partial
 
 import torch
-from torch import nn
 from tensordict.nn import TensorDictModule
 from torchrl.envs import GymWrapper
 from torchrl.modules import QValueActor, EGreedyModule, DuelingCnnDQNet, NoisyLinear
@@ -43,7 +42,8 @@ if __name__ == "__main__":
         rb_expansion=64,
         lr=1e-4,
         min_lr=1e-5,
-        max_grad_norm=10.,
+        weight_decay=1e-5,
+        max_grad_norm=1.,
         soft_update_eps=0.995
     )
     paths_space: PathsParameters = PathsParameters(exp_name="experience", log_dir="breakout_logs")
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     print(names_space)
     # ------------------------------------------
     env_prep = GymPreprocessing(
-        partial(AtariPreprocessing, noop_max=20, frame_skip=5, terminal_on_life_loss=False, screen_size=84),
+        partial(AtariPreprocessing, noop_max=20, frame_skip=4, terminal_on_life_loss=False, screen_size=84),
         partial(EpisodicLifeEnv),
         partial(FireResetEnv),
         partial(ClipRewardEnv),
@@ -71,9 +71,9 @@ if __name__ == "__main__":
     )
     logger: SmartLogger = SmartLogger(names_space.actor, options=logs_config, exp_name=paths_space.exp_name)
     # ------------------------------------------
-    out_features = envir.action_spec.shape.numel()
+    action_spec = envir.action_spec.shape.numel()
     cnn_kwargs = dict(num_cells=(32, 64, 128), kernel_sizes=(8, 4, 3), strides=(4, 2, 1))
-    mlp_kwargs = dict(num_cells=512, layer_class=NoisyLinear)
+    mlp_kwargs = dict(num_cells=512)
     model: TensorDictModule = Model(
         scale=TensorDictModule(
             Scale(value=255.),
@@ -82,12 +82,18 @@ if __name__ == "__main__":
         ),
         actor=QValueActor(
             DuelingCnnDQNet(
-                out_features=out_features,
+                out_features=action_spec,
                 cnn_kwargs=cnn_kwargs,
                 mlp_kwargs=mlp_kwargs
             ),
             in_keys=[names_space.transformed],
             spec=envir.action_spec
+        ),
+        explorer=EGreedyModule(
+            spec=action_spec,
+            eps_init=1.,
+            eps_end=0.01,
+            annealing_num_steps=model_space.n_epochs // 2
         )
     )
     # ------------------------------------------

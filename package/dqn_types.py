@@ -122,6 +122,7 @@ class ModelParameters:
     # Train parameters.
     lr: float = 2e-2
     min_lr: float = 1e-5
+    weight_decay: float = 1e-5
     max_grad_norm: float = 10.
     batch_size: int = 64
     soft_update_eps: float = 0.995
