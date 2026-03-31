@@ -40,7 +40,7 @@ if __name__ == "__main__":
         n_frames=4,
         n_epochs=2 * 10 ** 5,
         batch_size=64,
-        rb_expansion=50,
+        rb_expansion=64,
         lr=1e-4,
         min_lr=1e-5,
         max_grad_norm=10.,

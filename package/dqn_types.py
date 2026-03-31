@@ -98,7 +98,7 @@ class Experience:
 class EnvSpaceName:
     """ DataClass contains terms of literal strings.
         This class is used to encapsulate information about an environment space.
-        Warning: this class are compatible with another module of this package.
+        Warning: this class is compatible with another module of this package.
         If you change some "logic", check compatibility. """
     actor: str = "actor"
     explorer: str = "explorer"
