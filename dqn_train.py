@@ -36,8 +36,17 @@ from package.modules import (Model,
                              n_parameters)
 
 if __name__ == "__main__":
-    model_space: ModelParameters = ModelParameters(batch_size=128, lr=2e-4, min_lr=1e-8, max_grad_norm=10.)
-    paths_space: PathsParameters = PathsParameters()
+    model_space: ModelParameters = ModelParameters(
+        n_frames=4,
+        n_epochs=2 * 10 ** 5,
+        batch_size=64,
+        rb_expansion=50,
+        lr=1e-4,
+        min_lr=1e-5,
+        max_grad_norm=10.,
+        soft_update_eps=0.995
+    )
+    paths_space: PathsParameters = PathsParameters(exp_name="experience", log_dir="breakout_logs")
     names_space: EnvSpaceName = EnvSpaceName()
     # ------------------------------------------
     print(model_space)
@@ -45,32 +54,41 @@ if __name__ == "__main__":
     print(names_space)
     # ------------------------------------------
     env_prep = GymPreprocessing(
-        partial(AtariPreprocessing, noop_max=0, frame_skip=1, terminal_on_life_loss=False, screen_size=84),
+        partial(AtariPreprocessing, noop_max=20, frame_skip=5, terminal_on_life_loss=False, screen_size=84),
         partial(EpisodicLifeEnv),
         partial(FireResetEnv),
         partial(ClipRewardEnv),
-        partial(FrameStackObservation, stack_size=4)
+        partial(FrameStackObservation, stack_size=model_space.n_frames)
     )
     build_env: Callable[[], GymWrapper] = lambda: create_breakout_env(transform=env_prep)
     envir: GymWrapper = build_env()
     # ------------------------------------------
     logs_config: LogsConfig = LogsConfig(
-        paths_space.log_dir, metrics_save_freq=50, weights_save_freq=300, videos_save_freq=300
+        log_dir=paths_space.log_dir,
+        metrics_save_freq=50,
+        weights_save_freq=500,
+        videos_save_freq=500
     )
     logger: SmartLogger = SmartLogger(names_space.actor, options=logs_config, exp_name=paths_space.exp_name)
     # ------------------------------------------
     out_features = envir.action_spec.shape.numel()
-    cnn_kwargs = dict(num_cells=(64, 128, 256), kernel_sizes=(8, 4, 3), strides=(4, 2, 1))
-    mlp_kwargs = dict(num_cells=256, layer_class=NoisyLinear)
+    cnn_kwargs = dict(num_cells=(32, 64, 128), kernel_sizes=(8, 4, 3), strides=(4, 2, 1))
+    mlp_kwargs = dict(num_cells=512, layer_class=NoisyLinear)
     model: TensorDictModule = Model(
-        actor=QValueActor(nn.Sequential(
+        scale=TensorDictModule(
             Scale(value=255.),
-            DuelingCnnDQNet(out_features=out_features, cnn_kwargs=cnn_kwargs, mlp_kwargs=mlp_kwargs)
+            in_keys=names_space.observation,
+            out_keys=names_space.transformed
         ),
-            in_keys=[names_space.observation],
-            spec=envir.action_spec),
-        # Turn off explorer, because we use "NoisyLinear".
-        explorer=EGreedyModule(envir.action_spec, 0.0, 0.0, annealing_num_steps=0)
+        actor=QValueActor(
+            DuelingCnnDQNet(
+                out_features=out_features,
+                cnn_kwargs=cnn_kwargs,
+                mlp_kwargs=mlp_kwargs
+            ),
+            in_keys=[names_space.transformed],
+            spec=envir.action_spec
+        )
     )
     # ------------------------------------------
     model: TensorDictModule = init_lazy_layers(envir.reset(), model).apply(initialize_weights)
@@ -79,8 +97,8 @@ if __name__ == "__main__":
     print(f"Weights counts: {n_parameters(model)}")
     # ------------------------------------------
     buffer = PrioritizedReplayBuffer(
-        alpha=0.7,
-        beta=0.9,
+        alpha=0.6,
+        beta=0.5,
         batch_size=model_space.batch_size,
         storage=LazyMemmapStorage(
             max_size=5 * 10 ** 5,
@@ -91,13 +109,13 @@ if __name__ == "__main__":
     )
     # ------------------------------------------
     collector_kwargs = dict(
-        frames_per_batch=200,
+        frames_per_batch=model_space.batch_size,
         total_frames=-1,
         extend_buffer=False,
         storing_device=model_space.cpu,
         policy_device=model_space.dev
     )
-    fill_buffer(init_collector(build_env, **collector_kwargs), buffer, 10 ** 5, show=True)
+    _ = fill_buffer(init_collector(build_env, **collector_kwargs), buffer, 10 ** 5, show=True)
     # ------------------------------------------
     collector_kwargs = dict(
         frames_per_batch=model_space.batch_size,
@@ -113,7 +131,11 @@ if __name__ == "__main__":
         deterministic=True
     )
     collector = init_collector(build_env, model, **collector_kwargs)
-    optim_method = Optimizer(network=model.to(model_space.dev), action_space=envir.action_spec, params=model_space)
+    optim_method = Optimizer(
+        network=model.to(model_space.dev),
+        action_space=envir.action_spec,
+        params=model_space
+    )
     # ------------------------------------------
     trainer = Trainer(model, optim_method, model_space, names_space, logger, video_maker)
-    trainer.train(n_epochs=50000, rb=buffer, loader=collector)
+    trainer.train(n_epochs=model_space.n_epochs, rb=buffer, loader=collector)

@@ -137,15 +137,13 @@ class Optimizer:
             network: TensorDictModule,
             action_space: TensorSpec,
             params: ModelParameters,
-            n_epochs: int = 10 ** 5,
-            soft_update: float = 0.995
     ):
         self.loss_fn = DQNLoss(
             network, loss_function="smooth_l1", action_space=action_space, double_dqn=True, delay_value=True
         )
         self.optimizer = torch.optim.Adam(self.loss_fn.parameters(), lr=params.lr)
-        self.trg_updater = SoftUpdate(self.loss_fn, eps=soft_update)
-        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=n_epochs, eta_min=params.min_lr)
+        self.trg_updater = SoftUpdate(self.loss_fn, eps=params.soft_update_eps)
+        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=params.n_epochs, eta_min=params.min_lr)
         self.clipping = params.max_grad_norm
         self.__epoch: int = 0
 
