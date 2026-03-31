@@ -235,7 +235,7 @@ class MemMapDeque(ERB):
         self.add(**fields)
 
 
-class REP:
+class PER:
     """
     Prioritized Experience Replay Buffer.
     Samples transition with probability proportional to their TD error.

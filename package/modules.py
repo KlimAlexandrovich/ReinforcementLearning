@@ -12,7 +12,7 @@ from torchrl.data.replay_buffers import ReplayBuffer
 from torchrl.collectors import Collector
 from collections import OrderedDict
 from tqdm import tqdm
-from typing import Optional
+from typing import Optional, Generator
 # Package.
 from dqn_types import ModelParameters, EnvSpaceName
 from utils import except_keyboard_interrupt, fill_buffer
@@ -138,12 +138,13 @@ class Optimizer:
             action_space: TensorSpec,
             params: ModelParameters,
             n_epochs: int = 10 ** 5,
+            soft_update: float = 0.995
     ):
-        self.loss_fn: DQNLoss = DQNLoss(
+        self.loss_fn = DQNLoss(
             network, loss_function="smooth_l1", action_space=action_space, double_dqn=True, delay_value=True
         )
         self.optimizer = torch.optim.Adam(self.loss_fn.parameters(), lr=params.lr)
-        self.trg_updater = SoftUpdate(self.loss_fn, eps=0.999)
+        self.trg_updater = SoftUpdate(self.loss_fn, eps=soft_update)
         self.scheduler = CosineAnnealingLR(self.optimizer, T_max=n_epochs, eta_min=params.min_lr)
         self.clipping = params.max_grad_norm
         self.__epoch: int = 0
@@ -152,15 +153,22 @@ class Optimizer:
         """ Resets gradients. """
         self.loss_fn.zero_grad()
 
-    def step(self, epoch: int) -> dict[str, float]:
+    def parameters(self) -> Generator[torch.Tensor]:
+        """ Returns the model's parameters. """
+        return self.loss_fn.parameters()
+
+    def step(self, loss: torch.Tensor) -> dict[str, float]:
         """ Performs an optimization step with gradient clipping. """
+        self.zero_grad()
+        loss.backward()
+        # -------------------------
         grad_norm: float = clip_grad_norm_(self.loss_fn.parameters(), self.clipping).item()
         weights_norm: float = get_total_norm(self.loss_fn.parameters()).item()
+        # -------------------------
         self.optimizer.step()
-        if self.__epoch != epoch:
-            # Perform a scheduler step once at an epoch.
-            self.__epoch = epoch
-            self.scheduler.step()
+        self.trg_updater.step()
+        self.scheduler.step()
+        # -------------------------
         last_lr: float = float(self.scheduler.get_last_lr()[0])
         return dict(grad_norm=grad_norm, weights_norm=weights_norm, lr=last_lr)
 
@@ -205,22 +213,6 @@ class Trainer:
         """
         return td_error.abs() + eps
 
-    def optim_step(self, loss: torch.Tensor) -> dict[str, float]:
-        """
-        Performs a full optimization step.
-        Includes gradient zeroing, backpropagation, and updating weights.
-
-        Args:
-            loss: The calculated loss tensor.
-
-        Returns:
-            A dictionary containing optimization metrics (grad norm, etc.).
-        """
-        self.optim.zero_grad()
-        loss.backward()
-        optim_step_info: dict[str, float] = self.optim.step(self._epoch)
-        return optim_step_info
-
     def update_priority(self, rb: ReplayBuffer, idx: torch.Tensor, td_error: float | torch.Tensor) -> None:
         """
         Updates the priorities in the replay buffer based on the TD error.
@@ -263,11 +255,10 @@ class Trainer:
         """
         sample, info, loss = self.evaluate(rb)
         self.update_priority(rb, info[self.variables.index], sample[self.variables.td_error])
-        optim_step_info: dict[str, float] = self.optim_step(loss=loss[self.variables.loss])
-        step_info: dict[str, int | float] = dict(
-            loss=loss[self.variables.loss].detach().item(),
-            mean_reward=sample[self.variables.next][self.variables.reward].mean().item()
-        )
+        optim_step_info: dict[str, float] = self.optim.step(loss=loss[self.variables.loss])
+        step_info: dict[str, int | float] = dict(loss=loss[self.variables.loss].detach().item())
+        overlap: set[str] = set(loss.keys()) & set(optim_step_info.keys())
+        assert overlap == set(), f"Metrics keys overlap: {overlap}"
         return step_info | optim_step_info
 
     def perform_hooks(self, data: dict[str, int | float]) -> None:
@@ -283,8 +274,6 @@ class Trainer:
         Args:
             data: A dictionary containing metrics from the current training step.
         """
-        if self._epoch % self.params.trg_update_freq == 0: self.optim.trg_updater.step()
-        if self._epoch % 1 == 0: self.network[self.variables.explorer].step()
         if self._epoch % self.manager.options.metrics_save_freq == 0: self.manager.set_scalars(**data)
         if self._epoch % self.manager.options.weights_save_freq == 0:
             self.manager.checkpoint(self.network.state_dict(), self.variables.actor)
@@ -302,15 +291,17 @@ class Trainer:
             show: Whether to display a progress bar.
         """
         self.network.to(self.params.dev)
-        progress_bar = tqdm(range(1, n_epochs + 1)) if show else range(1, n_epochs + 1)
+        progress_bar = tqdm(range(n_epochs)) if show else range(n_epochs)
         # Filling buffer by new experience, sampling and optimize "actor", make a background process, repeat ...
         for _ in progress_bar:
             self._epoch += 1
-            fill_buffer(loader, rb, self.params.rb_expansion, show=False)
+            reward: float = fill_buffer(loader, rb, self.params.rb_expansion, show=False)
             step_info: dict[str, int | float] = self.train_step(rb)
+            step_info[self.variables.reward] = reward
             self.perform_hooks(step_info)
             # Update progress bar description.
-            progress_bar.desc = "; ".join([f"{key.capitalize()}: {value:.5f}" for key, value in step_info.items()])
+            desc: str = "; ".join([f"{key.capitalize()}: {value:.5f}" for key, value in step_info.items()])
+            progress_bar.set_description(desc)
 
 
 def initialize_weights(module: nn.Module) -> None:

@@ -54,6 +54,6 @@ class GymPreprocessing(OrderedDict):
 
 @env2torch
 def create_breakout_env(name: str = "ALE/Breakout-v5", transform: Callable[[Env], Env] = None) -> Env:
-    environment = make(name, render_mode="rgb_array")
+    environment = make(name, render_mode="rgb_array", frameskip=1)
     environment = transform(environment) if transform else environment
     return environment

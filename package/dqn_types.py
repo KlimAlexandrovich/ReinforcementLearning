@@ -112,16 +112,20 @@ class EnvSpaceName:
     loss: str = "loss"
     td_error: str = "td_error"
     index: str = "index"
+    transformed: str = "transformed"
 
 
 @dataclass
 class ModelParameters:
+    # Input data parameters.
+    n_frames: int = 4
     # Train parameters.
     lr: float = 2e-2
     min_lr: float = 1e-5
     max_grad_norm: float = 10.
     batch_size: int = 64
-    trg_update_freq: int = 1000
+    soft_update_eps: float = 0.995
+    n_epochs: int = 2 * 10 ** 5
     # Exploration.
     rb_expansion: int = 10
     # Devices.

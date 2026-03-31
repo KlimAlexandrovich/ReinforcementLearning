@@ -2,9 +2,11 @@ import torch
 from torchrl.collectors import Collector
 from torchrl.envs import GymWrapper
 from torchrl.data import ReplayBuffer
+from tensordict import TensorDict
 from tensordict.nn import TensorDictModule
 import cv2
 import numpy as np
+import math
 import gymnasium as gym
 import time
 from tqdm import tqdm
@@ -232,7 +234,8 @@ def play_and_record(
 
 
 def init_collector(
-        builder: Callable[[], GymWrapper], network: Optional[TensorDictModule] = None, **kwargs) -> Collector:
+        builder: Callable[[], GymWrapper], network: Optional[TensorDictModule] = None, **kwargs
+) -> Collector:
     """
     Initializes a torchrl Collector for environment interaction.
 
@@ -249,20 +252,24 @@ def init_collector(
 
 @except_keyboard_interrupt
 @torch.no_grad()
-def fill_buffer(loader: Collector, rb: ReplayBuffer, size: int, show: bool = False) -> None:
+def fill_buffer(loader: Collector, rb: ReplayBuffer, total_frames: int, show: bool = False) -> float:
     """
     Fills the replay buffer with initial experience collected from the environment.
 
     Args:
         loader: The collector used to gather frames.
         rb: The replay buffer to store the experience.
-        size: The number of frames to collect.
+        total_frames: The number of frames to collect.
         show: Whether to display a progress bar.
     """
     assert loader.extend_buffer is False, "Implemented only for manual buffer extending!"
-    n_iters = size // loader.frames_per_batch
-    progress_bar = tqdm(enumerate(loader), total=n_iters) if show else enumerate(loader)
-    for iteration, batch in progress_bar:
+    n_iters: int = math.ceil(total_frames / loader.frames_per_batch)
+    progress_bar = tqdm(range(n_iters)) if show else range(n_iters)
+    whole_reward: float = 0.0
+    for _ in progress_bar:
+        batch: Optional[TensorDict] = loader.next()
+        assert batch is not None, "Loader returned None batch, check if loader is properly configured."
+        reward: int | float = batch.get("next").get("reward").mean().item()
+        whole_reward += reward
         rb.extend(batch)
-        n_iters -= 1
-        if n_iters < 0: break
+    return whole_reward / (n_iters * loader.frames_per_batch)
