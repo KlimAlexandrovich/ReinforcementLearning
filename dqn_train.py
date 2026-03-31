@@ -90,7 +90,7 @@ if __name__ == "__main__":
             spec=envir.action_spec
         ),
         explorer=EGreedyModule(
-            spec=action_spec,
+            spec=envir.action_spec,
             eps_init=1.,
             eps_end=0.01,
             annealing_num_steps=model_space.n_epochs // 2
