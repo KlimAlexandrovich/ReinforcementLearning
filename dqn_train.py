@@ -6,7 +6,7 @@ from functools import partial
 import torch
 from tensordict.nn import TensorDictModule
 from torchrl.envs import GymWrapper
-from torchrl.modules import QValueActor, EGreedyModule, DuelingCnnDQNet, NoisyLinear
+from torchrl.modules import QValueActor, EGreedyModule, DuelingCnnDQNet
 from torchrl.data.replay_buffers import LazyMemmapStorage, PrioritizedReplayBuffer
 from torchrl.record import CSVLogger
 
