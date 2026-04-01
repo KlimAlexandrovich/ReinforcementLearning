@@ -46,7 +46,7 @@ if __name__ == "__main__":
         max_grad_norm=1.,
         soft_update_eps=0.995
     )
-    paths_space: PathsParameters = PathsParameters(exp_name="experience", log_dir="breakout_logs")
+    paths_space: PathsParameters = PathsParameters(exp_name="dqn", log_dir="breakout_logs")
     names_space: EnvSpaceName = EnvSpaceName()
     # ------------------------------------------
     print(model_space)

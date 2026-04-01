@@ -4,7 +4,6 @@ import warnings
 from functools import partial
 
 import torch
-from torch import nn
 from tensordict.nn import TensorDictModule
 from torchrl.envs import GymWrapper, Compose, InitTracker, StepCounter, TransformedEnv
 from torchrl.modules import QValueActor, ConvNet, EGreedyModule, LSTMModule, MLP
@@ -56,14 +55,14 @@ if __name__ == "__main__":
     mean_episode_len: int = 32
     model_space: ModelParameters = ModelParameters(
         n_frames=4,
-        n_epochs=10 ** 4,
+        n_epochs=4 * 10 ** 4,
         batch_size=8 * mean_episode_len,
         rb_expansion=64,
         lr=1e-4,
         min_lr=1e-5,
         weight_decay=1e-6,
         max_grad_norm=1.,
-        soft_update_eps=0.999
+        soft_update_eps=0.9975
     )
     paths_space: PathsParameters = PathsParameters(exp_name="drqn", log_dir="breakout_logs")
     names_space: EnvSpaceName = EnvSpaceName()
@@ -90,9 +89,9 @@ if __name__ == "__main__":
     # ------------------------------------------
     logs_config: LogsConfig = LogsConfig(
         log_dir=paths_space.log_dir,
-        metrics_save_freq=60,
-        weights_save_freq=300,
-        videos_save_freq=300
+        metrics_save_freq=100,
+        weights_save_freq=500,
+        videos_save_freq=500
     )
     logger: SmartLogger = SmartLogger(names_space.actor, options=logs_config, exp_name=paths_space.exp_name)
     # ------------------------------------------
@@ -125,13 +124,13 @@ if __name__ == "__main__":
     # ------------------------------------------
     buffer = TensorDictReplayBuffer(
         storage=LazyMemmapStorage(
-            max_size=2.5 * 10 ** 5,
+            max_size=3.5 * 10 ** 5,
             scratch_dir=paths_space.storage_path,
             existsok=True,
             auto_cleanup=True
         ),
         sampler=SliceSampler(
-            slice_len=mean_episode_len,  # Mean episode len.
+            slice_len=mean_episode_len,
             end_key=("next", "done"),
             traj_key=("collector", "traj_ids"),
             cache_values=True,
@@ -148,7 +147,8 @@ if __name__ == "__main__":
         policy_device=model_space.dev,
         extend_buffer=False
     )
-    _ = fill_buffer(init_collector(build_env, model, **collector_kwargs), buffer, 5 * 10 ** 4, show=True)
+    # We use model for evaluating frames (for filling buffer) only if this is resumed training from a checkpoint.
+    _ = fill_buffer(init_collector(build_env, model, **collector_kwargs), buffer, 50000, show=True)
     # ------------------------------------------
     collector_kwargs = dict(
         frames_per_batch=model_space.batch_size // 2,
