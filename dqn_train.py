@@ -91,7 +91,7 @@ if __name__ == "__main__":
         ),
         explorer=EGreedyModule(
             spec=envir.action_spec,
-            eps_init=1.,
+            eps_init=0.7,  # When the learning process was resumed, the initial epsilon decreased from 1 to x.
             eps_end=0.01,
             annealing_num_steps=model_space.n_epochs // 2
         )
@@ -121,7 +121,7 @@ if __name__ == "__main__":
         storing_device=model_space.cpu,
         policy_device=model_space.dev
     )
-    _ = fill_buffer(init_collector(build_env, **collector_kwargs), buffer, 10 ** 5, show=True)
+    _ = fill_buffer(init_collector(build_env, model, **collector_kwargs), buffer, 10 ** 5, show=True)
     # ------------------------------------------
     collector_kwargs = dict(
         frames_per_batch=model_space.batch_size,

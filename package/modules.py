@@ -197,7 +197,7 @@ class Trainer:
         self._epoch: int = 0
 
     @staticmethod
-    def calc_priorities(td_error: float | torch.Tensor, eps: float = 1e-8) -> float:
+    def calc_priorities(td_error: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
         """
         Calculates priority values for the Replay Buffer.
         The priority is computed as the absolute TD error plus a small epsilon
@@ -299,8 +299,9 @@ class Trainer:
             step_info[self.variables.reward] = reward
             self.perform_hooks(step_info)
             # Update progress bar description.
-            desc: str = "; ".join([f"{key.capitalize()}: {value:.5f}" for key, value in step_info.items()])
-            progress_bar.set_description(desc)
+            if not isinstance(progress_bar, range):
+                desc: str = "; ".join([f"{key.capitalize()}: {value:.5f}" for key, value in step_info.items()])
+                progress_bar.set_description(desc)
 
 
 def initialize_weights(module: nn.Module) -> None:
