@@ -141,4 +141,4 @@ class PathsParameters:
     """ DataClass contains paths and devices. """
     exp_name: str = "experience"
     log_dir: str = "breakout_logs"
-    storage_path: str = f"{log_dir}/dump/storage"
+    storage_path: str = f"breakout_logs/dump/storage"

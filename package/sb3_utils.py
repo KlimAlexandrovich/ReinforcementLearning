@@ -2,6 +2,8 @@ import os
 import time
 import warnings
 
+import cv2
+import numpy as np
 from tqdm import tqdm
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
@@ -141,7 +143,7 @@ class Checkpointer(Support):
         """
         path: str = os.path.join(self.path, f"model_{time.time()}")
         self.network.save(path)
-        return dict(checkpoint=path, succses=True)
+        return dict(checkpoint=path, success=True)
 
 
 class VideoWriter(Support):
@@ -155,6 +157,7 @@ class VideoWriter(Support):
             builder: Callable[[], gym.Env],
             freq: int = 1,
             duration: int = 500,
+            fps: int = 30,
             path: str = "./videos"
     ):
         """
@@ -170,7 +173,12 @@ class VideoWriter(Support):
         self.builder = builder
         self.path: str = path
         self.duration: int = duration
+        self.fps: int = fps
         self._freq: int = freq
+        self.initial_step()
+
+    def initial_step(self):
+        os.makedirs(self.path, exist_ok=True)
 
     def freq(self) -> int:
         """
@@ -180,30 +188,31 @@ class VideoWriter(Support):
         """
         return self._freq
 
-    def build_vec_environment(self) -> gym.wrappers.RecordVideo:
+    def record(self, path: str) -> None:
         """
-        Constructs a video recording wrapper around a new environment.
-
-        :return: Wrapped environment for video recording.
+        Plays and records it to a file.
         """
-        environment: gym.wrappers.RecordVideo = gym.wrappers.RecordVideo(
-            self.builder(),
-            video_folder=self.path,
-            episode_trigger=lambda x: x == 0,
-            name_prefix=f"replay_{int(time.time())}"
-        )
-        return environment
-
-    def record(self) -> None:
-        """
-        Plays one episode (or up to 'duration' steps) and records it to a file.
-        """
-        environment = self.build_vec_environment()
+        # ----- Create a fresh environment -----
+        environment: gym.Env = self.builder()
         observation, _ = environment.reset()
+        # ----- Get the initial frame size -----
+        frame: np.ndarray = environment.render()
+        height, width, _ = frame.shape
+        # ----- Initialize the video writer -----
+        assert "VideoWriter_fourcc" in dir(cv2), "Please install opencv-python to use VideoWriter."
+        fourcc: int = cv2.VideoWriter_fourcc(*"mp4v")
+        out = cv2.VideoWriter(path, fourcc, self.fps, (width, height))
+        # ----- Play the game and record the video -----
         for _ in range(self.duration):
+            # ----- Convert RGB to BGR and write to frame -----
+            frame_bgr = cv2.cvtColor(environment.render(), cv2.COLOR_RGB2BGR)
+            out.write(frame_bgr)
+            # ----- Make prediction and step -----
             action, _ = self.network.predict(observation, deterministic=True)
             observation, _, terminated, truncated, _ = environment.step(action)
-            if truncated: observation, _ = environment.reset()
+            if terminated or truncated: observation, _ = environment.reset()
+        # ----- Release the video writer -----
+        out.release()
         environment.close()
 
     def __call__(self) -> dict[str, str | bool]:
@@ -212,9 +221,9 @@ class VideoWriter(Support):
 
         :return: Dictionary containing 'checkpoint' (video path) and 'success' status.
         """
-        path: str = os.path.join(self.path, f"replay_{int(time.time())}")
-        self.record()
-        return dict(checkpoint=path, succses=True)
+        path: str = os.path.join(self.path, f"replay_{int(time.time())}.mp4")
+        self.record(path)
+        return dict(checkpoint=path, success=True)
 
 
 class Callback(BaseCallback):
@@ -249,7 +258,7 @@ class Callback(BaseCallback):
 
     def _on_step(self) -> bool:
         """
-        Method called by the model at each step during rollout collection.
+        Method called by the model at each step during a rollout collection.
 
         :return: False if training should be aborted, True otherwise.
         """

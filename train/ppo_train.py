@@ -46,6 +46,7 @@ if __name__ == "__main__":
         max_grad_norm=1.,
         n_frames=4
     )
+    print(model_space)
     envir = dummy_env(model_space.n_parallel) if is_notebook() else multi_env(model_space.n_parallel)
     model = PPO(
         "CnnPolicy",
@@ -62,11 +63,13 @@ if __name__ == "__main__":
         vf_coef=0.5,
     )
     # ----------------- Logger -----------------
-    paths_space = PathsParameters(exp_name="ppo", log_dir="../breakout_logs")
+    paths_space = PathsParameters(exp_name="ppo", log_dir="breakout_logs")
     logs_config = LogsConfig(paths_space.log_dir,
-                             metrics_save_freq=int(1e3),
-                             weights_save_freq=int(1e4),
-                             videos_save_freq=int(1e4))
+                             metrics_save_freq=1000,
+                             weights_save_freq=20000,
+                             videos_save_freq=20000)
+    print(paths_space)
+    print(logs_config)
     logger = SmartLogger(model.__class__.__name__, options=logs_config, exp_name=paths_space.exp_name)
     # ----------------- Services -----------------
     services: tuple[Support, ...] = (
@@ -78,6 +81,6 @@ if __name__ == "__main__":
     last_upd: Optional[str] = logger.get_last_update(model.__class__.__name__)
     model = model.load(last_upd, env=envir, device=model_space.dev) if last_upd else model
     # ----------------- Training -----------------
-    total_timesteps: int = int(1e1) * model_space.n_parallel * model_space.n_steps
+    total_timesteps: int = int(1e4) * model_space.n_parallel * model_space.n_steps
     callback = Callback(*services, writer=logger, show_progress=total_timesteps // model_space.n_parallel)
     model = model.learn(total_timesteps=total_timesteps, callback=callback)
