@@ -52,8 +52,12 @@ class GymPreprocessing(OrderedDict):
         return self.forward(env)
 
 
-@env2torch
-def create_breakout_env(name: str = "ALE/Breakout-v5", transform: Callable[[Env], Env] = None) -> Env:
+def create_breakout_env_gym(name: str = "ALE/Breakout-v5", transform: Callable[[Env], Env] = None) -> Env:
     environment = make(name, render_mode="rgb_array", frameskip=1)
-    environment = transform(environment) if transform else environment
+    environment = transform(environment) if (transform is not None) else environment
     return environment
+
+
+@env2torch
+def create_breakout_env(name: str = "ALE/Breakout-v5", transform: Callable[[Env], Env] = None) -> GymWrapper:
+    return create_breakout_env_gym(name, transform)
