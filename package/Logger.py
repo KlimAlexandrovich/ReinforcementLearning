@@ -14,6 +14,7 @@ class Logger:
     """
     Base Logger class for managing experiment logs and checkpoints.
     """
+
     def __init__(self, directory: str, log_name: str = "logs", checkpoints_dir: str = "checkpoints"):
         """
         Initializes the Logger.
@@ -112,7 +113,6 @@ class LogsConfig:
     videos_save_freq: int = 20
 
 
-
 class SmartLogger:
     """ A utility class for logging model weights and scalar metrics during training. """
 
@@ -143,7 +143,7 @@ class SmartLogger:
         for name, value in scalars.items():
             self.set_scalar(time.time(), name, value)
 
-    def set_scalar(self, dtime: float, name: str, value: int | float) -> None:
+    def set_scalar(self, dtime: float, name: str, value: int | float | str) -> None:
         """ Log a single scalar value to a CSV file. """
         file_path: str = os.path.join(self.scalars_path, f"{name}.csv")
         file_exists: bool = os.path.isfile(file_path)
@@ -154,16 +154,19 @@ class SmartLogger:
 
     def get_last_update(self, model: str) -> Optional[str]:
         """ Retrieve the path to the most recent checkpoint file in the directory. """
-        assert os.path.isdir(self.model_paths[model]), f"Directory {self.model_paths[model]} does not exist."
+        assert model in self.model_paths.keys(), f"Logger does not know model: {model}."
         return get_last_update(self.model_paths[model])
 
-    def draw_scalars(self) -> None:
+    def draw_scalars(self, exclude: Optional[list[str]] = None) -> None:
         """
         Plots logged metrics from CSV files.
         Automatically creates subplots for each metric found in the scalar's directory.
         """
         assert os.path.exists(self.scalars_path), f"Directory {self.scalars_path} does not exist."
         csv_files: list[str] = [file for file in os.listdir(self.scalars_path) if file.endswith(".csv")]
+        if exclude is not None:
+            # TODO: Implement exclude argument.
+            raise NotImplementedError("Not implemented exclude argument yet.")
         if len(csv_files) == 0:
             print("No CSV files found.")
         else:
