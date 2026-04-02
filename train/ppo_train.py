@@ -12,7 +12,7 @@ from stable_baselines3.common.atari_wrappers import FireResetEnv, EpisodicLifeEn
 
 warnings.filterwarnings("ignore")
 gym.register_envs(ale_py)
-if os.path.abspath("package") not in sys.path: sys.path.append(os.path.abspath("package"))
+if os.path.abspath("../package") not in sys.path: sys.path.append(os.path.abspath("../package"))
 
 from package.environment import GymPreprocessing, create_breakout_env_gym
 from package.dqn_types import ModelParameters, PathsParameters
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         vf_coef=0.5,
     )
     # ----------------- Logger -----------------
-    paths_space = PathsParameters(exp_name="ppo", log_dir="breakout_logs")
+    paths_space = PathsParameters(exp_name="ppo", log_dir="../breakout_logs")
     logs_config = LogsConfig(paths_space.log_dir,
                              metrics_save_freq=int(1e3),
                              weights_save_freq=int(1e4),
