@@ -1,131 +1,63 @@
-# DQN (Deep Q-Network)
+# Reinforcement Learning: Atari Breakout
 
-$$Q^*(s,a)=\max_{\pi}\ \mathbb{E}\Big[\sum_{t=0}^{\infty}\gamma^t r_t\ \big|\ s_0=s,\ a_0=a,\ \pi\Big]$$
-$$Q^*(s,a)=\mathbb{E}\big[r+\gamma\max_{a'}Q^*(s',a')\ \big|\ s,a\big]$$
-$$a=
-\begin{cases}
-\arg\max\limits_{a'} Q(s,a';\theta), & \text{с вероятностью } 1-\varepsilon\\
-\text{случайное } a\sim \mathcal{U}(\mathcal{A}), & \text{с вероятностью } \varepsilon
-\end{cases}$$
-$$(s,a,r,s',d)\sim \mathcal{D}$$
-$$y = r + \gamma(1-d)\max_{a'}Q(s',a';\theta^-)$$
-$$\delta = y - Q(s,a;\theta)$$
-$$\mathcal{L}(\theta)=\mathbb{E}_{(s,a,r,s',d)\sim \mathcal{D}}
-\Big[\big(y - Q(s,a;\theta)\big)^2\Big]$$
-$$\theta \leftarrow \theta - \alpha \nabla_{\theta}\mathcal{L}(\theta)$$
-$$\theta^- \leftarrow \theta$$
+This repository contains implementations and experiments with various Reinforcement Learning algorithms applied to the **Atari Breakout** environment (Gymnasium ALE).
 
-Реализация **Deep Q-Network** для обучения агента играть в **Atari Breakout** (Gymnasium ALE).
-Цель проекта — **разобрать руками** ключевые идеи DQN и типичные инженерные компоненты
-RL-пайплайна:
+## Project Overview
 
-- preprocessing среды (Atari wrappers + stacking кадров),
-- онлайн-сеть и target-сеть,
-- replay buffer,
-- epsilon-greedy exploration,
-- TD-ошибка и оптимизация,
-- (опционально) Double DQN / Dueling архитектура.
+The goal of this project is to explore different RL architectures, understand their training dynamics, and implement a robust pipeline for experience collection, logging, and evaluation.
+
+### Previous Experiments: DQN & DRQN
+
+Initially, **Deep Q-Network (DQN)** and **Deep Recurrent Q-Network (DRQN)** were implemented and tested. Despite extensive hyperparameter tuning (adjusting learning rates, replay buffer sizes, epsilon decay, and network architectures like Dueling DQN), these models **did not yield satisfactory results** for the Breakout task.
+
+The training results for these attempts are located at: `/Users/klimdajneko/Desktop/IT/Portfolio/ReinforcementLearning/breakout_logs`
+
+**Why DQN/DRQN struggled with convergence:**
+*   **Sample Efficiency vs. Stability:** DQN is off-policy and relies on a Replay Buffer. In a fast-paced environment like Breakout, the distribution of states changes rapidly, often leading to unstable Q-value estimations.
+*   **Overestimation Bias:** Even with Double DQN, the model tended to overestimate the value of certain suboptimal actions, causing the agent to get "stuck" in local minima (e.g., staying in one corner).
+*   **Sensitivity to Hyperparameters:** DQN is notoriously sensitive to the target network update frequency and the balance of exploration/exploitation.
+*   **DRQN Complexity:** While DRQN adds a temporal dimension via LSTM/GRU, it significantly increases the training time and gradient instability when processing sequences of frames in a high-dimensional state space like Atari pixels.
 
 ---
 
-## Основные концепции
+## Current Approach: Proximal Policy Optimization (PPO)
 
-1. **DQN**
-2. **TD-обучение**
-3. **Prioritized Replay Buffer**
+Given the difficulties with value-based methods, the project transitioned to **PPO (Proximal Policy Optimization)**. PPO is an **on-policy** actor-critic algorithm that has become a gold standard in RL due to its balance of ease of implementation, sample efficiency, and robustness.
 
----
+### The Mathematics Behind PPO
 
-## Что реализовано (по модульной структуре)
+PPO's core innovation is the **clipped surrogate objective function**, which prevents the policy from changing too drastically in a single update step, ensuring stable training.
 
-Проект разбит на небольшие файлы, чтобы легче было читать и расширять.
+The objective function $L^{CLIP}$ is defined as:
+$$L^{CLIP}(\theta) = \hat{\mathbb{E}}_t \left[ \min(r_t(\theta) \hat{A}_t, \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A}_t) \right]$$
 
-### `custom_types.py`
+Where:
+*   $r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{old}}(a_t|s_t)}$ is the probability ratio between the new and old policy.
+*   $\hat{A}_t$ is the estimated advantage at time $t$.
+*   $\epsilon$ is a hyperparameter (usually 0.1 or 0.2) that determines the clipping range.
 
-- Базовые типы и датакласс `Experience` для хранения одного перехода `(obs, action, reward, next_obs, done)`.
-- Декоратор для копирования numpy-аргументов, чтобы опыт в буфере не “портился” из‑за ссылок.
+This mechanism ensures that the policy update stays within a "trust region," making the learning process much more monotonic and reliable compared to vanilla Policy Gradient or DQN.
 
-### `Buffer.py`
+### Why stable-baselines3?
 
-- `ReplayBuffer` на `deque(maxlen=...)`
-- `add(...)` — добавление перехода
-- `sample(batch_size)` — случайная выборка батча (с преобразованием в numpy-массивы нужных dtype)
-
-### `DQNAgent.py`
-
-- Обёртка над Q-сетью (наследник `nn.Module`)
-- `get_q_values(states)` — получение Q-values на numpy входах
-- `sample_actions(...)` и `sample_actions_by_q_values(...)` — epsilon-greedy семплинг действий
-
-### `Samplers.py`
-
-- Унифицированный интерфейс семплера действия (callable)
-- `RandomActionSampler` — случайные действия (полезно для начального наполнения буфера)
-- `DQNActionSampler` — выбор действия через агента (использует батчирование одного состояния)
-
-### `compute_td_loss.py`
-
-- Набор тестов, которые проверяют корректность TD-loss:
-    - что учитывается `done`,
-    - что формула совпадает с ожидаемыми ручными примерами,
-    - отдельные кейсы для vanilla vs double.
-
-### `Deep Q-Network implementation.ipynb`
-
-“Сценарий” эксперимента:
-
-- создание и оборачивание среды Breakout (wrappers),
-- определение модели (в т.ч. dueling head),
-- запуск оценки (evaluate),
-- наполнение replay buffer и расчёт TD-loss,
-- каркас обучения (где можно наращивать логирование, target update, decay epsilon и т.д.).
+For the PPO implementation, the **stable-baselines3 (SB3)** library was chosen. The decision was motivated by:
+1.  **Industry Standard:** SB3 is a widely used, well-tested, and documented library that implements RL algorithms with high reliability.
+2.  **Learning Best Practices:** Integrating SB3 allowed for the exploration of professional RL workflows, including vectorized environments, custom callbacks, and modular logging.
+3.  **Efficiency:** It provides highly optimized implementations of PPO, allowing us to focus on environment wrapping and hyperparameter strategy rather than low-level algorithmic debugging.
 
 ---
 
-## Алгоритм (высокоуровнево)
+## Project Structure
 
-1. Инициализируем:
-    - online Q-network: `Q(s,a; θ)`
-    - target network: `Q(s,a; θ⁻)` (копия online)
-    - replay buffer `D`
-2. Наполняем буфер случайной политикой (warm-up).
-3. Затем циклически:
-    - действуем в среде (epsilon-greedy),
-    - добавляем переход в буфер,
-    - берём батч из буфера,
-    - считаем TD target и loss,
-    - обновляем веса online сети градиентом,
-    - периодически копируем веса в target сеть.
+*   `breakout_PPO.ipynb`: Main notebook for PPO training with detailed annotations.
+*   `package/`: Custom modules for environment preprocessing, logging (`SmartLogger`), and SB3 utilities.
+*   `ppo_train.py`: Script version of the PPO training pipeline.
+*   `breakout_DQN.ipynb` / `breakout_DRQN.ipynb`: Historical records of value-based experiments.
+*   `breakout_logs/`: Directory containing metrics, checkpoints, and recorded gameplay videos.
 
----
+## Requirements
 
-## Результаты и наблюдения
-
-Основные проблемы - это относительно долгая сходимость и переобучение.
-Для решения вопроса связанного с первоначальным размером буфера 
-я использую `PER` (Prioritized Replay Buffer).
-Таким образом, мы можем более эффективно использовать опыт, 
-уменьшая влияние старых, менее информативных переходов, 
-но не исключая его полностью.
-
-Проблема с переобучением проявляется в том, 
-что агент заучивает некоторую стратегию, 
-которая не является оптимальной для текущей задачи.
-Например, агент забивается в угол экрана и не выходит оттуда, 
-так как привык, что именно там "самая выгодная позиция".
-
-Оптимальный результаты были получены только после первых 150к шагов обучения.
-
----
-
-## Что можно улучшить (идеи для следующих шагов)
-
-- **Логирование метрик**: reward, episode length, epsilon.
-- **Noisy Nets / distributional RL**
-
----
-
-## Примечания
-
-Это учебный проект: код специально написан так, чтобы его можно было читать, модифицировать и расширять.
-Если что-то кажется “лишним” — возможно, это сделано ради прозрачности, а не ради максимальной производительности.
+To install the necessary dependencies:
+```bash
+pip install -r requirements.txt
+```
