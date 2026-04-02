@@ -1,7 +1,6 @@
-import torch
 from gymnasium import Env, Wrapper, make
 from torchrl.envs import GymWrapper
-from typing import Callable, Iterator, Optional, Any
+from typing import Callable, Iterator, Any
 from collections import OrderedDict
 
 

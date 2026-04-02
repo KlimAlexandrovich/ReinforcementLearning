@@ -16,7 +16,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm, VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 
-from Logger import SmartLogger
+from .Logger import SmartLogger
 
 
 def is_notebook() -> bool:

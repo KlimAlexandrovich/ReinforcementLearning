@@ -3,9 +3,9 @@ import os
 from typing import Iterable, Any, Optional, Sequence, Callable, Self
 from functools import wraps
 from collections import OrderedDict, deque
-from dqn_types import ERB, Experience
-from SumTree import SumTree
-from utils import check_disk_space_for_memmap
+from .dqn_types import ERB, Experience
+from .SumTree import SumTree
+from .utils import check_disk_space_for_memmap
 
 
 class VanillaReplayBuffer(object):

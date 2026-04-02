@@ -10,7 +10,7 @@ The goal of this project is to explore different RL architectures, understand th
 
 Initially, **Deep Q-Network (DQN)** and **Deep Recurrent Q-Network (DRQN)** were implemented and tested. Despite extensive hyperparameter tuning (adjusting learning rates, replay buffer sizes, epsilon decay, and network architectures like Dueling DQN), these models **did not yield satisfactory results** for the Breakout task.
 
-The training results for these attempts are located at: `/Users/klimdajneko/Desktop/IT/Portfolio/ReinforcementLearning/breakout_logs`
+The training results for these attempts are located at: `/breakout_logs`
 
 **Why DQN/DRQN struggled with convergence:**
 *   **Sample Efficiency vs. Stability:** DQN is off-policy and relies on a Replay Buffer. In a fast-paced environment like Breakout, the distribution of states changes rapidly, often leading to unstable Q-value estimations.
@@ -49,10 +49,13 @@ For the PPO implementation, the **stable-baselines3 (SB3)** library was chosen. 
 
 ## Project Structure
 
-*   `breakout_PPO.ipynb`: Main notebook for PPO training with detailed annotations.
+*   `research/`: Directory containing Jupyer Notebooks with detailed experiments and annotations.
+    *   `breakout_PPO.ipynb`: Main notebook for PPO training.
+    *   `breakout_DQN.ipynb` / `breakout_DRQN.ipynb`: Records of value-based experiments.
+*   `train/`: Training scripts for different algorithms.
+    *   `ppo_train.py`: Stable Baselines3 PPO training pipeline.
+    *   `dqn_train.py` / `drqn_train.py`: DQN and DRQN training implementations.
 *   `package/`: Custom modules for environment preprocessing, logging (`SmartLogger`), and SB3 utilities.
-*   `ppo_train.py`: Script version of the PPO training pipeline.
-*   `breakout_DQN.ipynb` / `breakout_DRQN.ipynb`: Historical records of value-based experiments.
 *   `breakout_logs/`: Directory containing metrics, checkpoints, and recorded gameplay videos.
 
 ## Requirements

@@ -20,7 +20,10 @@ from stable_baselines3.common.atari_wrappers import FireResetEnv, EpisodicLifeEn
 
 warnings.filterwarnings("ignore")
 gym.register_envs(ale_py)
-if os.path.abspath("../package") not in sys.path: sys.path.append(os.path.abspath("../package"))
+# Add project root to sys.path to allow imports from 'package'
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
 
 from package.environment import GymPreprocessing, create_breakout_env
 from package.dqn_types import ModelParameters, PathsParameters, EnvSpaceName

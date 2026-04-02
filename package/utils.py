@@ -16,8 +16,8 @@ import shutil
 import json
 from typing import Optional, Callable, Any
 # Package.
-from Samplers import ActionSampler
-from dqn_types import DataClass, Agent, ERB
+from .Samplers import ActionSampler
+from .dqn_types import DataClass, Agent, ERB
 
 
 def is_strict_json(obj: object) -> bool:

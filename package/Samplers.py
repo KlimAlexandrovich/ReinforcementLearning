@@ -1,6 +1,6 @@
 import numpy as np
 import gymnasium as gym
-from DQNAgent import DQNAgent
+from .DQNAgent import DQNAgent
 
 
 class ActionSampler:

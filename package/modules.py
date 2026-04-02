@@ -14,10 +14,10 @@ from collections import OrderedDict
 from tqdm import tqdm
 from typing import Optional, Generator
 # Package.
-from dqn_types import ModelParameters, EnvSpaceName
-from utils import except_keyboard_interrupt, fill_buffer
-from video import Recorder
-from Logger import SmartLogger
+from .dqn_types import ModelParameters, EnvSpaceName
+from .utils import except_keyboard_interrupt, fill_buffer
+from .video import Recorder
+from .Logger import SmartLogger
 
 
 class Scale(nn.Module):

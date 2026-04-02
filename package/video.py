@@ -8,7 +8,7 @@ from tensordict import TensorDict, TensorDictBase
 from torchrl.envs import GymWrapper, TransformedEnv
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.record import CSVLogger, VideoRecorder
-from utils import get_last_update
+from .utils import get_last_update
 from typing import Any, Optional
 
 

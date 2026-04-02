@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from collections import OrderedDict
 from typing import Optional, Any
 import matplotlib.pyplot as plt
-from utils import get_last_update, read_json, write_json
+from .utils import get_last_update, read_json, write_json
 
 
 class Logger:
