@@ -127,6 +127,8 @@ class ModelParameters:
     batch_size: int = 64
     soft_update_eps: float = 0.995
     n_epochs: int = 2 * 10 ** 5
+    n_steps: int = 100
+    n_parallel: int = 1
     # Exploration.
     rb_expansion: int = 10
     # Devices.
