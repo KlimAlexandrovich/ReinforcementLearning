@@ -40,7 +40,7 @@ if __name__ == "__main__":
     # ----------------- Model -----------------
     model_space: ModelParameters = ModelParameters(
         lr=2.5e-4,
-        batch_size=512,
+        batch_size=256,
         n_epochs=10,
         n_steps=512,
         n_parallel=8,
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     model = model.load(last_upd, env=envir, device=model_space.dev) if last_upd else model
     # ----------------- Make some changes -----------------
     model.clip_range = ConstantSchedule(0.2)
-    model.ent_coef = 0.02
+    model.ent_coef = 0.03
     # ----------------- Training -----------------
     total_timesteps: int = int(1e4) * model_space.n_parallel * model_space.n_steps
     callback = Callback(*services, writer=logger, show_progress=total_timesteps // model_space.n_parallel)
