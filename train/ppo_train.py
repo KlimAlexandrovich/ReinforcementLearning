@@ -8,6 +8,7 @@ import gymnasium as gym
 import ale_py
 from gymnasium.wrappers import AtariPreprocessing, FrameStackObservation
 from stable_baselines3.common.atari_wrappers import FireResetEnv, EpisodicLifeEnv, ClipRewardEnv
+from stable_baselines3.common.utils import ConstantSchedule
 
 warnings.filterwarnings("ignore")
 gym.register_envs(ale_py)
@@ -39,11 +40,11 @@ if __name__ == "__main__":
     # ----------------- Model -----------------
     model_space: ModelParameters = ModelParameters(
         lr=2.5e-4,
-        batch_size=256,
-        n_epochs=8,
-        n_steps=128,
+        batch_size=512,
+        n_epochs=10,
+        n_steps=512,
         n_parallel=8,
-        max_grad_norm=1.,
+        max_grad_norm=0.5,
         n_frames=4
     )
     print(model_space)
@@ -80,6 +81,9 @@ if __name__ == "__main__":
     # ----------------- Resuming train process -----------------
     last_upd: Optional[str] = logger.get_last_update(model.__class__.__name__)
     model = model.load(last_upd, env=envir, device=model_space.dev) if last_upd else model
+    # ----------------- Make some changes -----------------
+    model.clip_range = ConstantSchedule(0.2)
+    model.ent_coef = 0.02
     # ----------------- Training -----------------
     total_timesteps: int = int(1e4) * model_space.n_parallel * model_space.n_steps
     callback = Callback(*services, writer=logger, show_progress=total_timesteps // model_space.n_parallel)
